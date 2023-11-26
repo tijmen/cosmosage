@@ -8,8 +8,7 @@ cosmosage is an attempt to fine-tune a relatively modest large language model on
 
 ## Author
 
-Tijmen de Haan 
-Email: <tijmen.dehaan@gmail.com>
+Tijmen de Haan <tijmen.dehaan@gmail.com>
 
 ## Project Structure
 
@@ -21,7 +20,7 @@ The project includes the following files, as well as some more helper files.
 
 3. `arxiv.py`: Adapted from Karpathy's excellent `arxiv-sanity-lite`, this is used to interface with the arXiv API.
 
-4. `fine_tune.py`: methods for interacting with `pytorch`` and doing the actual deep learning
+4. `fine_tune.py`: methods for interacting with `pytorch` and doing the actual deep learning
 
 
 ## Syntax, Code Style, Tools Used
