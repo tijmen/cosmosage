@@ -105,7 +105,10 @@ def fine_tune(
             if time.time() - last_save_time > 36000:
                 save_id += 1
                 cp_dir = f"{out_dir}/cp_{save_id}"
+                logging.info(f"Checkpoint {save_id}")
+                logging.info("Saving checkpoint weights")
                 model.save_pretrained(cp_dir)
+                logging.info("Saving loss history so far")
                 with open(os.path.join(cp_dir, "loss_history.pkl"), "wb") as file:
                     pickle.dump(loss_history, file)
                 last_save_time = time.time()
