@@ -98,6 +98,89 @@ def process_textbooks_multiprocess(textbooks_dir):
     with Pool() as pool:
         pool.map(process_single_book, books_to_process)
 
+def preprocess_text(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        text = file.read()
+
+    # Remove hyphenation
+    text = re.sub(r'-\n', '', text)
+
+    # Remove links
+    text = re.sub(r"http\S+", "", text)
+
+    # Remove long sequences of special characters and numbers
+    text = re.sub(r'[\W\d_]{10,}', '', text)
+
+    # Replace sequences of newline + few-digit number + newline with paragraph token
+    text = re.sub(r'\n\d{1,3}\n', ' <PARA> ', text)
+
+    # Replace double line breaks with a special token
+    text = text.replace('\n\n', ' <PARA> ')
+
+    # Replace single line breaks with space
+    text = text.replace('\n', ' ')
+
+    # Split into paragraphs and further split each paragraph into sentences
+    paragraphs = [para.strip() for para in text.split(' <PARA> ') if para.strip()]
+
+    return paragraphs
+
+def calculate_percentages(para):
+    total_chars = len(para)
+    char_classes = {
+        'spaces': ' ',
+        'digits': '0123456789',
+        'capital_letters': 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        'lowercase_letters': 'abcdefghijklmnopqrstuvwxyz',
+        'newlines': '\n',
+        'backslashes': '\\',
+        'periods': '.',
+        'exclamation_marks': '!',
+        'question_marks': '?'
+    }
+
+    percentages = {}
+    for class_name, chars in char_classes.items():
+        count = sum(para.count(char) for char in chars)
+        percentages[class_name] = 100 * count / total_chars if total_chars > 0 else 0
+
+    return percentages
+
+def histogram_percentages(books_paragraphs):
+    percentage_data = {key: [] for key in calculate_percentages('').keys()}
+
+    for book in books_paragraphs:
+        for para in book:
+            percentages = calculate_percentages(para)
+            for class_name, percent in percentages.items():
+                percentage_data[class_name].append(percent)
+
+    plt.figure()
+    for class_name, data in percentage_data.items():
+        plt.hist(data, bins=50, alpha=0.5, label=class_name.capitalize())
+    plt.legend()
+    plt.xlabel('Percentage')
+    plt.ylabel('Number of Paragraphs')
+    plt.title('Character Distribution')
+    plt.show()
+
+def is_paragraph_good(para_percentages, bounds):
+    for class_name, (lower_bound, upper_bound) in bounds.items():
+        if not (lower_bound <= para_percentages[class_name] <= upper_bound):
+            return False
+    return True
+
+def filter_paragraphs(book, bounds):
+    good_paragraphs = [para for para in book if is_paragraph_good(calculate_percentages(para), bounds)]
+    return good_paragraphs
+
+def filter_textbooks(books_paragraphs, bounds):
+    filtered_books = []
+    for book in books_paragraphs:
+        good_paragraphs = filter_paragraphs(book, bounds)
+        if len(good_paragraphs) >= len(book) / 2:  # Majority of paragraphs are good
+            filtered_books.append(good_paragraphs)
+    return filtered_books
 
 if __name__ == "__main__":
     textbooks_dir = "astro_textbooks/"  # or the path to your textbooks directory
