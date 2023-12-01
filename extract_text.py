@@ -1,54 +1,55 @@
 import os
 import glob
 import subprocess
+import platform
 from multiprocessing import Pool
-from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
-from pdfminer.converter import TextConverter
-from pdfminer.layout import LAParams
-from pdfminer.pdfpage import PDFPage
-from io import StringIO
-
+import edspdf
+from pathlib import Path
 
 def extract_text_from_pdf(path):
     try:
-        with open(path, "rb") as fp:
-            rsrcmgr = PDFResourceManager()
-            retstr = StringIO()
-            laparams = LAParams()
-            device = TextConverter(rsrcmgr, retstr, laparams=laparams)
-            interpreter = PDFPageInterpreter(rsrcmgr, device)
-            password = ""
-            maxpages = 0
-            caching = True
-            pagenos = set()
-            for page in PDFPage.get_pages(
-                fp,
-                pagenos,
-                maxpages=maxpages,
-                password=password,
-                caching=caching,
-                check_extractable=True,
-            ):
-                interpreter.process_page(page)
-            text = retstr.getvalue()
-            device.close()
-            retstr.close()
-            return text
+        # Initialize the EDS-PDF pipeline
+        model = edspdf.Pipeline()
+        model.add_pipe("mupdf-extractor")
+        model.add_pipe("simple-aggregator", name="aggregator",config={
+                "new_line_threshold": 0.2,
+                "new_paragraph_threshold": 1.5,
+                "label_map": {"body": "text","table": "text",}})
+        # Read the PDF file
+        pdf = Path(path).read_bytes()
+
+        # Apply the pipeline
+        processed_pdf = model(pdf)
+
+        # Check if 'body' key exists in aggregated_texts
+        if "body" in processed_pdf.aggregated_texts:
+            text = processed_pdf.aggregated_texts["body"].text
+        else:
+            # Extract and concatenate text from each TextBox
+            text = "\n".join([box.text for box in processed_pdf.lines])
+
+        return text
     except Exception as e:
         print(f"Error processing {path}: {e}")
         return None
 
-
 def extract_text_from_djvu(file_path):
     try:
-        output = subprocess.check_output(
-            ["C:\Program Files (x86)\DjVuLibre\djvutxt", file_path]
-        )
+        # Determine the path of djvutxt based on the operating system
+        if platform.system() == "Windows":
+            djvutxt_path = r"C:\Program Files (x86)\DjVuLibre\djvutxt"
+        else:  # Assuming Linux
+            djvutxt_path = "djvutxt"  # Typically just the command name on Linux
+
+        # Use a list for the command and its arguments
+        command = [djvutxt_path, file_path]
+        output = subprocess.check_output(command)
+
         return output.decode("utf-8", errors='ignore')
+
     except Exception as e:
         print(f"Error processing {file_path}: {e}")
         return None
-
 
 def extract_text_from_file(file_path, file_extension):
     if file_extension == ".pdf":
@@ -94,10 +95,10 @@ def find_books_to_process(textbooks_dir):
 
 def process_textbooks_multiprocess(textbooks_dir):
     books_to_process = find_books_to_process(textbooks_dir)
-    with Pool(6) as pool:
+    with Pool() as pool:
         pool.map(process_single_book, books_to_process)
 
 
 if __name__ == "__main__":
-    textbooks_dir = "./"  # or the path to your textbooks directory
+    textbooks_dir = "astro_textbooks/"  # or the path to your textbooks directory
     process_textbooks_multiprocess(textbooks_dir)
