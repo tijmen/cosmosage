@@ -8,9 +8,7 @@ import os
 import subprocess
 import json
 import pydetex.pipelines
-
-# from pylatexenc.latex2text import LatexNodes2Text
-# import TexSoup
+import re
 
 
 def stats_table(tex_elements):
@@ -40,9 +38,9 @@ def stats_table(tex_elements):
 
 
 def filter_for_good_elements(tex_elements):
-    '''
+    """
     Delete any elements that have more than 2% special characters.
-    '''
+    """
     stats = stats_table(tex_elements)
     return [element for element, stat in zip(tex_elements, stats) if stat[4] < 2]
 
@@ -74,58 +72,6 @@ def parse_tex_file(file_path):
     good_datablocks = filter_for_good_elements(datablocks)
 
     return good_datablocks
-
-    # Previous attempt using TexSoup
-
-    # # Extract abstract, captions, sections, subsections, subsubsections,
-    # # and subsubsubsections from LaTeX to a list of strings
-    # def strip_latex_commands(text):
-    #     flattenend_text = ""
-    #     for line in text:
-    #         if not line.startswith("%"):
-    #             flattenend_text += line + "\n"
-    #     return flattenend_text
-
-    # soup = TexSoup.TexSoup(tex)
-    # tex_elements = []
-    # for abstract in soup.find_all("abstract"):
-    #     tex_elements.append(strip_latex_commands(abstract.text))
-    # for caption in soup.find_all("caption"):
-    #     tex_elements.append(strip_latex_commands(caption.text))
-    # for section in soup.find_all(
-    #     ["section", "subsection", "subsubsection", "subsubsubsection"]
-    # ):
-    #     # name = section.name
-    #     # text = '\n'.join(section.text)
-    #     # tex_elements.append(f"{name}\n{text}\n")
-    #     # Section heading
-    #     heading = f"{section.name}\n{section.text}"
-
-    #     # Body text
-    #     body = []
-    #     current = section
-    #     while True:
-    #         next_siblings = current.next_siblings
-    #         if not next_siblings:
-    #             break
-    #         if isinstance(next_siblings[0], TexSoup.TexNode):
-    #             # Break if next sectioning command
-    #             if next_siblings[0].name in [
-    #                 "section",
-    #                 "subsection",
-    #                 "subsubsection",
-    #                 "subsubsubsection",
-    #             ]:
-    #                 break
-    #         # Append text from sibling
-    #         body.extend(next_siblings[0].text)
-    #         current = next_siblings[0]
-
-    #         body = "\n".join(body)
-
-    #         tex_elements.append(f"{heading}\n{body}\n")
-
-    # return tex_elements
 
 
 def parse_tex_files(folder_path):
@@ -162,6 +108,7 @@ def save_to_json(data, output_file):
     with open(output_file, "w", encoding="utf-8") as json_file:
         json.dump(data, json_file)
 
+
 def load_from_json(input_file):
     """
     This function takes a file path as input, and loads the JSON data from the file.
@@ -177,12 +124,13 @@ def load_from_json(input_file):
 
     return data
 
+
 def detex_files(folder):
     for file in os.listdir(folder):
         if file.endswith(".tex"):
             detex_file = os.path.splitext(file)[0] + ".detex"
             detex_path = os.path.join(folder, detex_file)
-            
+
             # Check if the .detex file already exists
             if not os.path.exists(detex_path):
                 tex_path = os.path.join(folder, file)
@@ -191,14 +139,63 @@ def detex_files(folder):
                 with open(detex_path, "w") as output:
                     subprocess.run(["detex", tex_path], stdout=output)
 
+
+def load_detex(file_path):
+    with open(file_path, "r", encoding="utf-8") as file:
+        content = file.read()
+
+        # Remove names and identifiers
+        content = re.sub(
+            r"\b[A-Z][a-z]+ [A-Z]\. [A-Z][a-z]+\b", "", content
+        )  # Remove full names with middle initials
+        content = re.sub(
+            r"\b\d{4}-\d{4}-\d{4}-\d{4}\b", "", content
+        )  # Remove ORCID ids
+
+        # Remove filenames and non-textual elements
+        content = re.sub(
+            r"\S+\.(jpg|jpeg|png|gif|eps|ps|pdf|rtx)\b",
+            "",
+            content,
+            flags=re.IGNORECASE,
+        )
+        content = re.sub(r"(table\*? center|tabularc|LaTeX2e|bxn)", "", content)
+
+        # Remove email addresses, URLs, and non-text sequences
+        content = re.sub(r"\b\w+@\w+\.\w+\b", "", content)
+        content = re.sub(r"http[s]?://\S+", "", content)
+        content = re.sub(r"\b(&\s?)+\b|\b(\d\s?)+\b", "", content)
+        content = re.sub(r"\[\s*\]", "", content)  # Remove empty brackets
+
+        # Remove strings of initials, strings of commas, and non-letter sequences
+        content = re.sub(r"\b([A-Z]\. )+[A-Z]?\b", "", content)
+        content = re.sub(r",\s*,\s*,\s*,", "", content)
+        content = re.sub(r"[^a-zA-Z\s]{10,}", "", content)
+
+        # Enhanced line break handling and paragraph condensation
+        content = re.sub(r"\n{2,}", "\n\n", content)
+        content = re.sub(r"(?<!\n)\n(?!\n)", " ", content)
+
+        # Condense excessive whitespace
+        content = re.sub(r"\s{2,}", " ", content)
+
+        return content
+
+
+def detex_to_jsonl(input_directory, output_file):
+    with open(output_file, "w", encoding="utf-8") as out_file:
+        # Iterate over .detex files in the directory
+        for file_name in os.listdir(input_directory):
+            if file_name.endswith(".detex"):
+                file_path = os.path.join(input_directory, file_name)
+                processed_content = load_detex(file_path)
+                json_line = json.dumps({"text": processed_content})
+                out_file.write(json_line + "\n")
+
+
 if __name__ == "__main__":
-    tex_files_path = "tex_files/"
-    json_file_path = "output/arxiv_tex.json"
+    tex_files_path = "datasets/tex_files/"
+    jsonl_file_path = "datasets/arxiv_tex.jsonl"
 
     detex_files(tex_files_path)
-
-    # # Parse .tex files
-    # files = parse_tex_files(tex_files_path)
-
-    # # Save parsed files to JSON
-    # save_to_json(files, json_file_path)
+    detex_to_jsonl(tex_files_path, jsonl_file_path)
