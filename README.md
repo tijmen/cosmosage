@@ -28,8 +28,6 @@ The .py files are kept consistently formatted with `black` on its default settin
 
 The codebase was written with the use of Pylance, GitHub Copilot, GPT-4, and VSCode fork `cursor`.
 
-Pylint shows no warnings as of the writing of this README file.
-
 ## Usage
 
 To get started with cosmosage:
