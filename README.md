@@ -14,14 +14,13 @@ Tijmen de Haan <tijmen.dehaan@gmail.com>
 
 The project includes the following files, as well as some more helper files.
 
-1. `cosmosage.ipynb`: This notebook contains the main code for fine-tuning the language model on cosmology-specific datasets. It goes through steps for data collection, preprocessing, model training, and evaluation.
+1. `cosmosage.ipynb`: This notebook walks through a several-step process for fine-tuning the language model on cosmology-specific datasets. It goes through steps for data collection, preprocessing, model training, and evaluation.
 
-2. `textbooks.ipynb`: This notebook is used for processing and preparing the dataset extracted from public-domain astro-related textbooks. The data is cleaned and saved in JSON format for further use. See the notebook for more details. 
+2. `extract_textbooks.ipynb`: This notebook is an example of how to use `extract_textbooks.py` to extract next-token prediction training data for fine-tuning a base model. It extracts text from astro-related textbooks. This data is then cleaned and saved in JSON format for further use. 
 
-3. `arxiv.py`: Adapted from Karpathy's excellent `arxiv-sanity-lite`, this is used to interface with the arXiv API.
+3. `arxiv.py`: Helper file adapted from Karpathy's excellent `arxiv-sanity-lite`, this is used to interface with the arXiv API.
 
-4. `fine_tune.py`: methods for interacting with `pytorch` and doing the actual deep learning
-
+4. `fine_tune.py`: This contains the actual `pytorch` training loop.
 
 ## Syntax, Code Style, Tools Used
 
@@ -36,19 +35,6 @@ Pylint shows no warnings as of the writing of this README file.
 To get started with cosmosage:
 - Ensure you have Jupyter Notebook and the required dependencies
 - Open and follow the steps in `cosmosage.ipynb` for a guide to training and using the model.
-
-## History
-
- - 2023 Nov 21 - project start
- - 2023 Nov 25 - completed fine tune "cosmosage_v1" based on arxiv papers and physics QA pairs, taking ~10 hours on 1x A6000
- - 2023 Nov 26 - collected open-access astro textbooks, began 2nd training run expected to take ~48 hours
-
-## To-Do List
-
-- **Data Improvement**: Explore more diverse datasets, experiment with token chunking, and extend the arXiv dataset.
-- **Hyperparameter Optimization**: Fine-tune hyperparameters like learning rate and gradient clipping.
-- **Validation Data**: Set aside a portion of data for validation purposes.
-- **Deployment Strategy**: Decide on the front-end platform and hardware options, and determine access permissions.
 
 ## Contributing
 
