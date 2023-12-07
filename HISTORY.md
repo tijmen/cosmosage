@@ -34,5 +34,16 @@
              starting from MiniChat_v8 at double lr: lr=1e-5
  - 2023 Dec 05: MiniChat_v10: three more epochs from v9
  - 2023 Dec 05: MiniChat_v11: three more epochs from v10
+ - 2023 Dec 06: MiniChat_v12: Taking MiniChat_v11 as the base model, I'll now use some QA datasets, starting
+                              with a bunch of physics questions. This did not work well. lr=1e-5 was much too
+                              high. The validation loss got better and then rapidly worse, while the training loss
+                              got very good very fast. On subsequent epochs the training loss lowered further, showing
+                              strong overfitting. Evaluating this model by inspecting the text it generates shows
+                              that it answers every question with a physics answer. I think I need to lower
+                              the learning rate and also sprinkle in another general-purpose dataset.
+ - 2023 Dec 07: mistral_cosmosage_v1: let's try fine tuning a base model and then instruction tuning it later. 
+                                      Randomly selected 10% of textbook+arxiv data. 
+                                      QLoRA, ReLORA 150 steps, lr=1e-4, num_epochs=2
+ 
 
 
