@@ -32,6 +32,7 @@ def plot_loss(file_paths):
     plt.ylabel('Loss')
     plt.title('Training and Evaluation Loss over Time')
     plt.legend()
+    plt.grid()
     plt.show()
 
 def main():
