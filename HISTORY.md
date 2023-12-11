@@ -44,6 +44,7 @@
  - 2023 Dec 07: mistral_cosmosage_v1: let's try fine tuning a base model and then instruction tuning it later. 
                                       Randomly selected 10% of textbook+arxiv data. 
                                       QLoRA, ReLORA 150 steps, lr=1e-4, num_epochs=2
- 
+ - 2023 Dec 08: mistral_cosmosage_v2: same but over the whole corpus (~48 hours)
+ - 2023 Dec 10: mistral_cosmosage_v3: instruction-tune v2 on SlimOrca-Dedup (~36 hours)
 
 

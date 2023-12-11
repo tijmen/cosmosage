@@ -2,9 +2,10 @@
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy
 from tensorboard.backend.event_processing import event_accumulator
 
-def plot_loss(file_paths):
+def plot_loss(file_paths, logsmooth=False):
     plt.figure(figsize=(12, 8))
 
     for idx, file_path in enumerate(file_paths):
@@ -24,9 +25,15 @@ def plot_loss(file_paths):
         e_steps = np.array([s.step for s in eloss])
         e_losses = np.array([s.value for s in eloss])
 
+        # Smooth the loss curve
+        if logsmooth:
+            # gaussian smoothing using edge handling that doesn't change the length
+            t_losses = scipy.ndimage.filters.gaussian_filter1d(t_losses, sigma=20, mode='nearest')
+
         # Plotting
-        plt.plot(t_steps, t_losses, label=f'Training Loss (Run {idx+1})', color=f'C{idx}')
-        plt.plot(e_steps, e_losses, label=f'Evaluation Loss (Run {idx+1})', color=f'C{idx}', linestyle='dashed')
+        plotting_function = plt.semilogy if logsmooth else plt.plot
+        plotting_function(t_steps, t_losses, label=f'Training Loss (Run {idx+1})', color=f'C{idx}')
+        plotting_function(e_steps, e_losses, label=f'Evaluation Loss (Run {idx+1})', color=f'C{idx}', linestyle='dashed')
 
     plt.xlabel('Steps')
     plt.ylabel('Loss')
