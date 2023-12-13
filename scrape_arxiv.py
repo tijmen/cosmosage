@@ -89,16 +89,17 @@ def extract_tex(papers, tex_files_path):
                         tex_content = tex_file.read().decode("utf-8")
                     except Exception as e:
                         print(f"Error reading tex file for paper {paper}: {e}")
-                        continue
+                        tex_content = ""
                 else:
                     print(f"No .tex file found in the tar archive for paper {paper}")
-                    continue
+                    tex_content = ""
 
             del tar_bytes
         except Exception as e:
             print(f"Error extracting tar archive for paper {paper}: {e}")
-            continue
-
+            # create a blank .tex file
+            tex_content = ""
+            
         # now save the tex file to disk
         if tex_file_name:
             with open(
