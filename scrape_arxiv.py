@@ -13,8 +13,8 @@ import re
 
 def get_arxiv_ids(search_params):
     arxiv_ids_all = []
-    max_iterations = 100 # don't look for more papers than max_iterations*max_results
-    max_results = 1000 # per iteration
+    max_iterations = 100  # don't look for more papers than max_iterations*max_results
+    max_results = 1000  # per iteration
     for i in range(max_iterations):
         search_params["max_results"] = max_results
         search_params["start"] = 1000 * i
@@ -57,10 +57,12 @@ def extract_tex(papers, tex_files_path):
     Returns:
         None
     """
-    for paper in papers:
+    for ipaper,paper in enumerate(papers):
         output_file_path = os.path.join(tex_files_path, paper + ".tex")
         if os.path.exists(output_file_path):
             continue
+
+        print(f"Fetching paper {ipaper} of {len(papers)}.") 
 
         # fetch paper from arxiv
         url = "https://arxiv.org/e-print/" + paper
@@ -102,6 +104,7 @@ def extract_tex(papers, tex_files_path):
                 os.path.join(tex_files_path, paper + ".tex"), "w", encoding="utf-8"
             ) as file:
                 file.write(tex_content)
+
 
 def other_arxiv_recommendation_ids():
     # more arxiv papers recommended for me by asl (but no tags)
