@@ -18,7 +18,8 @@ def get_arxiv_ids(search_params):
     for i in range(max_iterations):
         search_params["max_results"] = max_results
         search_params["start"] = 1000 * i
-
+        search_params["sortBy"] = "submittedDate"
+        search_params["sortOrder"] = "descending"
         # arXiv API endpoint
         url = "http://export.arxiv.org/api/query"
 
