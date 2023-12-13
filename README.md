@@ -12,15 +12,7 @@ Tijmen de Haan <tijmen.dehaan@gmail.com>
 
 ## Project Structure
 
-The project includes the following files, as well as some more helper files.
-
-1. `cosmosage.ipynb`: This notebook walks through a several-step process for fine-tuning the language model on cosmology-specific datasets. It goes through steps for data collection, preprocessing, model training, and evaluation.
-
-2. `extract_textbooks.ipynb`: This notebook is an example of how to use `extract_textbooks.py` to extract next-token prediction training data for fine-tuning a base model. It extracts text from astro-related textbooks. This data is then cleaned and saved in JSON format for further use. 
-
-3. `arxiv.py`: Helper file adapted from Karpathy's excellent `arxiv-sanity-lite`, this is used to interface with the arXiv API.
-
-4. `fine_tune.py`: This contains the actual `pytorch` training loop.
+A walkthrough of the project is given in iPython Notebook format in `cosmosage.ipynb`. This notebook walks through the several-step process for fine-tuning the language model on cosmology-specific datasets. It goes through steps for data collection, preprocessing, model training, and evaluation.
 
 ## Syntax, Code Style, Tools Used
 

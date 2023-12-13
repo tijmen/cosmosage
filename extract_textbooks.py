@@ -7,6 +7,8 @@ from multiprocessing import Pool
 import edspdf
 from pathlib import Path
 import matplotlib.pyplot as plt
+import json
+import random
 
 
 def extract_text_from_pdf(path):
@@ -204,6 +206,57 @@ def filter_textbooks(books_paragraphs, bounds):
     return filtered_books
 
 
+def textbooks_to_jsonl(output_file_path):
+    """
+    Primary function to convert the textbooks to JSONL format.
+    """
+    # Parse the books into individual .txt files
+    process_textbooks_multiprocess("datasets/astro_textbooks/")
+    process_textbooks_multiprocess("datasets/physics_textbooks/")
+
+    # Preprocess, to get a list of books, where each book is a list of paragraphs
+    book_paths = glob.glob("datasets/textbooks_extracted/*.txt")
+    books_paragraphs = [preprocess_text(file_path) for file_path in book_paths]
+
+    # Mark each paragraph as good or bad based on whether the rate of certain
+    # characters is within the distribution
+    # histogram_percentages(books_paragraphs)
+    bounds = {
+        "spaces": (6, 24),
+        "digits": (0, 15),
+        "capital_letters": (1, 23),
+        "lowercase_letters": (50, 95),
+        "newlines": (0, 5),
+        "backslashes": (0, 5),
+        "periods": (0, 8),
+        "exclamation_marks": (0, 5),
+        "question_marks": (0, 6),
+    }
+
+    # Filter the textbooks
+    filtered_books_paragraphs = filter_textbooks(books_paragraphs, bounds)
+
+    # save to JSON: full, training, and evaluation sets
+    root = "/home/tijmen/cosmosage/datasets/"
+
+    # Collect all paragraphs
+    all_paragraphs = []
+    for book in filtered_books_paragraphs:
+        for para in book:
+            all_paragraphs.append({"text": para})
+
+    # Make a flat JSONL that has one entry per book
+    textbooks = []
+    for book in filtered_books_paragraphs:
+        if len(book) > 100:
+            textbooks.append("\n\n".join(book))
+
+    random.shuffle(textbooks)
+
+    with open(output_file_path, "w", encoding="utf-8") as flat_f:
+        for textbook in textbooks:
+            flat_f.write(json.dumps({"text": textbook}) + "\n")
+
+
 if __name__ == "__main__":
-    textbooks_dir = "astro_textbooks/"  # or the path to your textbooks directory
-    process_textbooks_multiprocess(textbooks_dir)
+    textbooks_to_jsonl("datasets/textbooks.jsonl")
