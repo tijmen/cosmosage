@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Methods for scraping the arXiv. Uses arxiv-sanity-lite as a library.
+Methods for interacting with papers from the ArXiV.
+
+There are several methods for manually detexifying and cleaning up the papers.
+
+An alternative method relies on langchain and VLLM to generate summaries and 
+QA pairs from the ArXiV papers. This interacts with the paper PDFs
+rather than the .tex files. See the arxiv_paper class for more details.
+
+Author: Tijmen de Haan <tijmen.dehaan@gmail.com>
 """
 import io
 import tarfile
@@ -9,6 +17,20 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import re
+import requests
+import urllib.request
+import json
+import urllib.request
+import os
+import xml.etree.ElementTree as ET
+from langchain.document_loaders import PyPDFLoader
+from langchain.chains.summarize import load_summarize_chain
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage
+from langchain.prompts import PromptTemplate
+from langchain.output_parsers import PydanticOutputParser
+from langchain.pydantic_v1 import BaseModel, Field
 
 
 def get_arxiv_ids(search_params):
@@ -58,12 +80,12 @@ def extract_tex(papers, tex_files_path):
     Returns:
         None
     """
-    for ipaper,paper in enumerate(papers):
+    for ipaper, paper in enumerate(papers):
         output_file_path = os.path.join(tex_files_path, paper + ".tex")
         if os.path.exists(output_file_path):
             continue
 
-        print(f"Fetching paper {ipaper} of {len(papers)}.") 
+        print(f"Fetching paper {ipaper} of {len(papers)}.")
 
         # fetch paper from arxiv
         url = "https://arxiv.org/e-print/" + paper
@@ -99,7 +121,7 @@ def extract_tex(papers, tex_files_path):
             print(f"Error extracting tar archive for paper {paper}: {e}")
             # create a blank .tex file
             tex_content = ""
-            
+
         # now save the tex file to disk
         if tex_file_name:
             with open(
@@ -477,3 +499,172 @@ def other_arxiv_recommendation_ids():
         "2106.12467",
         "2103.05582",
     ]
+
+
+class arxiv_paper:
+    """
+    Class to hold an arxiv paper and its metadata.
+    Can generate an overall summary and QA pairs with an LLM.
+    """
+
+    def __init__(self, arxiv_id):
+        
+        self.arxiv_id = arxiv_id
+
+        # connect to the VLLM server that I started separately with something like
+        #  python -u -m vllm.entrypoints.openai.api_server --host 0.0.0.0 --model mistralai/Mistral-7B-Instruct-v0.2
+
+        inference_server_url = "http://0.0.0.0:8000/v1"
+
+        self.llm = ChatOpenAI(
+            model="mistralai/Mistral-7B-Instruct-v0.2",
+            openai_api_key="EMPTY",
+            openai_api_base=inference_server_url,
+            max_tokens=4096,
+            temperature=0.4,
+        )
+        self.fetch_paper_data()
+        self.title = self.paper_data.find("{http://www.w3.org/2005/Atom}title").text
+        self.year = self.paper_data.find(
+            "{http://www.w3.org/2005/Atom}published"
+        ).text.split("-")[0]
+        self.first_author = (
+            self.paper_data.find("{http://www.w3.org/2005/Atom}author")
+            .find("{http://www.w3.org/2005/Atom}name")
+            .text
+        )
+        self.shorthand_title = f"{self.first_author} et al. ({self.year})"
+        self.pdf_filepath = f"datasets/arxiv_pdf/{self.arxiv_id}.pdf"
+        self.download_pdf()
+        self.load_pdf()
+
+    def fetch_paper_data(self):
+        url = f"http://export.arxiv.org/api/query?id_list={self.arxiv_id}"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise Exception("Error fetching paper data")
+
+        try:
+            root = ET.fromstring(response.content)
+            self.paper_data = root.find("{http://www.w3.org/2005/Atom}entry")
+        except ET.ParseError:
+            raise Exception("Error parsing XML data")
+
+    def download_pdf(self):
+        if not os.path.exists(self.pdf_filepath):
+            pdf_url = f"http://arxiv.org/pdf/{self.arxiv_id}.pdf"
+            urllib.request.urlretrieve(pdf_url, self.pdf_filepath)
+
+    def load_pdf(self):
+        loader = PyPDFLoader(self.pdf_filepath)
+        self.pages = loader.load()
+
+        def clean_up(doc):
+            # weird double f character
+            doc = doc.replace(chr(64256), "ff")
+            # -\n are hyphenated line breaks which need to be removed altogether
+            doc = doc.replace("-\n", "")
+            # double line breaks are probably paragraph breaks
+            doc = doc.replace("\n\n", "<|paragraph_break|>")
+            # remaining line breaks can be replaced by spaces
+            doc = doc.replace("\n", " ")
+            # put back double line breaks
+            doc = doc.replace("<|paragraph_break|>", "\n\n")
+            return doc
+
+        # clean up pages
+        for page in self.pages:
+            page.page_content = clean_up(page.page_content)
+
+    def generate_summary(self):
+        summarize_chain = load_summarize_chain(self.llm, chain_type="map_reduce")
+        self.summary = summarize_chain.run(self.pages)
+        return self.summary
+
+    def generate_qa_pairs(self):
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000, chunk_overlap=200
+        )
+        texts = text_splitter.split_documents(self.pages)
+
+        class question_answer(BaseModel):
+            question: str = Field(..., description="Question framed.")
+            answer: str = Field(..., description="Answer to the question.")
+
+        class output(BaseModel):
+            output: list[question_answer] = []
+
+        parser = PydanticOutputParser(pydantic_object=output)
+
+        # make sure summary has been generated
+        if not hasattr(self, "summary"):
+            self.generate_summary()
+
+        prompt = (
+            """You are an expert on cosmology and are tasked with generating questions and answers. You make question-answer pairs from a given PASSAGE of a scientific paper. Each question should be able to be understood by any expert cosmologist, regardless of whether or not they have read the paper. If you must refer to the paper, use the ArXiV ID """
+            + self.arxiv_id
+            + """. The answer should include some context for other domain-expert cosmologists to know what you are talking about.
+
+        Paper title: """
+            + self.title
+            + """
+
+        Shorthand title: """
+            + self.shorthand_title
+            + """    
+            
+        Overall paper summary: """
+            + self.summary
+            + """
+
+        Provided PASSAGE: {text}
+
+        {format_instructions}
+
+        Output:"""
+        )
+
+        self.qa_pairs = []
+
+        for text in texts:
+            _prompt = PromptTemplate(
+                template=prompt,
+                input_variables=["text"],
+                partial_variables={
+                    "format_instructions": parser.get_format_instructions()
+                },
+            )
+
+            _input = _prompt.format_prompt(text=text)
+            message = [HumanMessage(content=_input.to_string())]
+
+            result = self.llm(message).content
+            try:
+                json_result = json.loads(result)
+            except json.decoder.JSONDecodeError as e:
+                print("Cannot serialize this output because of JSONDecodeError", e)
+                continue
+            for json_result in json_result:
+                self.qa_pairs.append(json_result)
+
+        return self.qa_pairs
+
+    def save_dataset_jsonl(self):
+        with open(f"datasets/arxiv_qa/{self.arxiv_id}.jsonl", "w") as f:
+            # first save the summary
+            summary = {
+                "question": f"Summarize {self.shorthand_title}.",
+                "answer": f'{self.shorthand_title} is titled "{self.title}" and has ArXiV ID {self.arxiv_id}. {self.summary}',
+            }
+            f.write(json.dumps(summary) + "\n")
+
+            # then save the qa_pairs
+            for item in self.qa_pairs:
+                f.write(json.dumps(item) + "\n")
+
+
+if __name__ == "__main__":
+    paper = arxiv_paper("1603.06522")
+    paper.generate_summary()
+    paper.generate_qa_pairs()
+    paper.save_dataset_jsonl()

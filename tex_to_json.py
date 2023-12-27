@@ -189,13 +189,13 @@ def detex_to_jsonl(input_directory, output_file):
             if file_name.endswith(".detex"):
                 file_path = os.path.join(input_directory, file_name)
                 processed_content = load_detex(file_path)
-                json_line = json.dumps({"text": processed_content})
-                out_file.write(json_line + "\n")
+                if processed_content.strip():  # Check if content is non-blank
+                    json_line = json.dumps({"text": processed_content})
+                    out_file.write(json_line + "\n")
 
 
 if __name__ == "__main__":
     tex_files_path = "datasets/tex_files/"
     jsonl_file_path = "datasets/arxiv_tex.jsonl"
-
     detex_files(tex_files_path)
     detex_to_jsonl(tex_files_path, jsonl_file_path)

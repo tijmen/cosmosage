@@ -45,7 +45,7 @@ def plot_loss(file_paths, logsmooth=False):
         if logsmooth:
             # gaussian smoothing using edge handling that doesn't change the length
             t_losses = scipy.ndimage.filters.gaussian_filter1d(
-                t_losses, sigma=20, mode="nearest"
+                t_losses, sigma=10, mode="nearest"
             )
 
         # Plotting

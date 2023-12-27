@@ -86,7 +86,7 @@ def extract_unique_arxiv_numbers(db_path):
     for numbers in all_tags['arxiv_numbers']:
         unique_arxiv_numbers.update(numbers)
 
-    return unique_arxiv_numbers
+    return list(unique_arxiv_numbers)
 
 if __name__=='__main__':
     db_path = 'dict_20231123.db' 

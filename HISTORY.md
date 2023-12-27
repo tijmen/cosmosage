@@ -47,4 +47,12 @@
  - 2023 Dec 08: mistral_cosmosage_v2: same but over the whole corpus (~48 hours)
  - 2023 Dec 10: mistral_cosmosage_v3: instruction-tune v2 on SlimOrca-Dedup (~36 hours)
  - 2023 Dec 12: mistral_cosmosage_v4: one more pass through physics_astro_qa
-
+ - 2023 Dec 13: mistral_cosmosage_v5: realizing that lora r=8 was too low. 2 more epochs starting
+                                      from v2, but at lora r=128. Also setting lr=1e-4.
+ - 2023 Dec 16: mistral_cosmosage_v6: 3 more epochs over the pretraining data
+ - 2023 Dec 20: mistral_cosmosage_v7: Fine-tune v6 on all QA pairs + SlimOrca, lr=1e-4. Manually stopped at 2.5 epochs when validation loss started increasing
+ - 2023 Dec 23: mistral_cosmosage_v8: another pass over the physics+astro+cosmo QA, lr=3e-5. Set for 5 epochs but will monitor validation loss to decide when to stop
+ - 2023 Dec 25: Manual evaluation by interacting with mistral_cosmosage_v8. It's quite impressive and seems to be quite good
+                at astronomy, in addition to physics and cosmology. The ArXiV dataset seems to have been partially "understood". The model can provide some answers that it couldn't possibly have known without having read those papers. 
+                The primary problem is hallucination. The model makes stuff up all the time. One way to detect hallucinations by hand is by regenerating the answer a few times. The hallucination will change, whereas the knowledge it's confident about doesn't. 
+ - 2023 Dec 27: Started generating synthetic data based on the ArXiV papers.
