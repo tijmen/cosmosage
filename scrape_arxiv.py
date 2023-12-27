@@ -645,7 +645,13 @@ class arxiv_paper:
                 print("Cannot serialize this output because of JSONDecodeError", e)
                 continue
             for json_result in json_result:
-                self.qa_pairs.append(json_result)
+                if "question" in json_result and "answer" in json_result:
+                    self.qa_pairs.append(json_result)
+                elif "output" in json_result:
+                    for item in json_result["output"]:
+                        self.qa_pairs.append(item)
+                else:
+                    continue
 
         return self.qa_pairs
 
