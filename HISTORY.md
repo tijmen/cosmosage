@@ -55,4 +55,6 @@
  - 2023 Dec 25: Manual evaluation by interacting with mistral_cosmosage_v8. It's quite impressive and seems to be quite good
                 at astronomy, in addition to physics and cosmology. The ArXiV dataset seems to have been partially "understood". The model can provide some answers that it couldn't possibly have known without having read those papers. 
                 The primary problem is hallucination. The model makes stuff up all the time. One way to detect hallucinations by hand is by regenerating the answer a few times. The hallucination will change, whereas the knowledge it's confident about doesn't. 
+ - 2023 Dec 26: published mistral_cosmosage_v8 (internal name) as https://huggingface.co/Tijmen2/cosmosage_v0.2
  - 2023 Dec 27: Started generating synthetic data based on the ArXiV papers.
+ - 2023 Dec 28: Paused, modified prompt, and resumed synthetic data generation. ETA ~7 days.

@@ -508,7 +508,6 @@ class arxiv_paper:
     """
 
     def __init__(self, arxiv_id):
-        
         self.arxiv_id = arxiv_id
 
         # connect to the VLLM server that I started separately with something like
@@ -601,10 +600,11 @@ class arxiv_paper:
             self.generate_summary()
 
         prompt = (
-            """You are an expert on cosmology and are tasked with generating questions and answers. You make question-answer pairs from a given PASSAGE of a scientific paper. Each question should be able to be understood by any expert cosmologist, regardless of whether or not they have read the paper. If you must refer to the paper, use the ArXiV ID """
+            """You are an expert on cosmology and are tasked with generating questions and answers. You make question-answer pairs from a given PASSAGE of a scientific paper. The question should be understood BY ITSELF, so include the shorthand form, title, or arXiv ID if referring to a specific context. The answer should be long and demonstrate an excellent understanding of the subject matter.
+        arXiv ID: """
             + self.arxiv_id
-            + """. The answer should include some context for other domain-expert cosmologists to know what you are talking about.
-
+            + """
+ 
         Paper title: """
             + self.title
             + """
@@ -617,7 +617,7 @@ class arxiv_paper:
             + self.summary
             + """
 
-        Provided PASSAGE: {text}
+        PASSAGE: {text}
 
         {format_instructions}
 
