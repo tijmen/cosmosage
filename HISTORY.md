@@ -58,3 +58,8 @@
  - 2023 Dec 26: published mistral_cosmosage_v8 (internal name) as https://huggingface.co/Tijmen2/cosmosage_v0.2
  - 2023 Dec 27: Started generating synthetic data based on the ArXiV papers.
  - 2023 Dec 28: Paused, modified prompt, and resumed synthetic data generation. ETA ~7 days.
+ - 2023 Dec 31: mistral_cosmosage_v9: Train mistral_cosmosage_v8 1 epoch over all instruct/QA datasets
+ - 2023 Jan 4: mistral_cosmosage_v10: Train v9 over just the arXiv QA set using LoRA (not QLoRA) for 0.1 epoch to squeeze out any performance
+                                      we might get from the high-resolution bits?
+ - 2023 Jan 6: mistral_cosmosage_v11: Train v10 for 3 epochs on the new cosmology textbook QA synthetic dataset. lr=3e-5, 8-bit LoRA, 10 hours
+ 

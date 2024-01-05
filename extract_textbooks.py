@@ -258,5 +258,235 @@ def textbooks_to_jsonl(output_file_path):
             flat_f.write(json.dumps({"text": textbook}) + "\n")
 
 
+# if __name__ == "__main__":
+#     textbooks_to_jsonl("datasets/textbooks.jsonl")
+
+"""
+Converting the textbooks to raw text for continued pretraining is one approach.
+
+However, there's an alternative approach. Like with the arXiv papers, we can turn the textbooks
+into QA pairs instead.
+
+The following is code is an attempt to make such QA pairs.
+"""
+
+import os
+import re
+import json
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage
+from langchain.prompts import PromptTemplate
+from langchain.output_parsers import PydanticOutputParser
+from langchain.pydantic_v1 import BaseModel, Field
+from itertools import chain
+from multiprocessing import Pool
+
+
+def generate_qa_pair(args):
+    text, title, author = args
+
+    class question_answer(BaseModel):
+        question: str = Field(..., description="Question framed.")
+        answer: str = Field(..., description="Answer to the question.")
+
+    class output(BaseModel):
+        output: list[question_answer] = []
+
+    # connect to the VLLM server that I started separately with something like
+    #  python -u -m vllm.entrypoints.openai.api_server --host 0.0.0.0 --model mistralai/Mistral-7B-Instruct-v0.2
+    inference_server_url = "http://0.0.0.0:8000/v1"
+
+    llm = ChatOpenAI(
+        # model="mistralai/Mistral-7B-Instruct-v0.2",
+        model="/home/tijmen/public_models/TheBloke_Mixtral-8x7B-Instruct-v0.1-GPTQ_gptq-4bit-32g-actorder_True",
+        openai_api_key="EMPTY",
+        openai_api_base=inference_server_url,
+        max_tokens=4096,
+        temperature=0.4,
+    )
+
+    parser = PydanticOutputParser(pydantic_object=output)
+
+    prompt = (
+        """You are an expert on cosmology and are tasked with generating questions and answers. You make question-answer pairs from a given PASSAGE of a cosmology textbook. The questions contain the context and can be understood by themselves. DO NOT reference the PASSAGE itself. The answer should be long and demonstrate an excellent understanding of the subject matter.
+    Textbook: """
+        + title
+        + """
+    Author: """
+        + author
+        + """
+    PASSAGE: {text}
+
+    {format_instructions}
+
+    Output:"""
+    )
+
+    _prompt = PromptTemplate(
+        template=prompt,
+        input_variables=["text"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
+    )
+
+    _input = _prompt.format_prompt(text=text)
+    message = [HumanMessage(content=_input.to_string())]
+
+    llm_response = llm(message).content
+
+    # Check if the response is not empty or None
+    if not llm_response:
+        print("The response from the LLM is empty or None.")
+        return []
+
+    # try:
+    #     greedy = True
+    #     if not greedy:
+    #         json_result = json.loads(llm_response)
+    #     else:
+
+    # except json.decoder.JSONDecodeError as e:
+    #     print("Cannot serialize this output because of JSONDecodeError:", e)
+    #     print("Original content causing error:", llm_response)
+    #     print("=================")
+    #     return []
+
+    # output_list = []
+
+    # # Ensure json_result is a list for uniform processing
+    # json_result = [json_result] if not isinstance(json_result, list) else json_result
+
+    # for item in json_result:
+    #     if isinstance(item, dict):
+    #         if "question" in item and "answer" in item:
+    #             # Append the item containing 'question' and 'answer'
+    #             output_list.append(item)
+    #         elif "output" in item:
+    #             # Handle 'output' key, ensuring it's iterable
+    #             if isinstance(item["output"], list):
+    #                 output_list.extend(item["output"])
+    #             else:
+    #                 print(
+    #                     f"Expected a list for 'output', but got a different type: {item['output']}"
+    #                 )
+    #         else:
+    #             print(f"JSON item format not as expected: {item}")
+    #     else:
+    #         print(f"JSON item is not a dictionary: {item}")
+
+    def preprocess_string(s):
+        # Escape special characters and handle multiline strings
+        return s.replace("\n", "\\n").replace('"', '\\"')
+
+    def extract_qa_pairs(text):
+        qa_pairs = []
+
+        def match_patterns(text):
+            # Multiple patterns to account for different structures
+            patterns = [
+                r'\{\s*"question":\s*"(.*?)"\s*,\s*"answer":\s*"(.*?)"\s*\}',  # Original pattern
+                r"\"question\":\s*\"(.*?)\"\s*,\s*\"answer\":\s*\"(.*?)\"",  # Pattern for nested within an array
+                r'[{[]\s*\\?"question\\?":\s*\\?"(.*?)\\?"\s*,\s*\\?"answer\\?":\s*\\?"(.*?)\\?"\s*[}\]]',  # Pattern with escaped quotes
+                r'\\?"question\\?":\s*\\?"(.*?)\\?"\s*,\s*\\?"answer\\?":\s*\\?"(.*?)\\?"(?=,\s*\\?[{[]|\s*\\?]\])',  # Pattern for multiple JSON objects in an array
+                r'[{[]\s*\\?"output\\?":\s*\[\s*{.*?"question":\s*\'(.*?)\'\s*,\s*"answer":\s*\'(.*?)\'\s*}(?:,\s*{.*?}|])',  # Pattern for nested structure with single quotes
+                r'"question":\s*"(.+?)"\s*,\s*"answer":\s*"((?:[^"]|"(?![},]))+)"',  # New pattern to capture multi-sentence answers
+            ]
+
+            for pattern in patterns:
+                matches = re.findall(pattern, text, re.DOTALL)
+                if matches:
+                    return matches
+            # If no pattern matches
+            print(f"No matches found for patterns in text: {text}")
+            return None
+
+        matches = match_patterns(text)
+        if not matches:
+            return []
+
+        for question, answer in matches:
+            try:
+                # Manually construct the dictionary from question and answer
+                qa_pair = {
+                    "question": question.replace("\n", " ").replace('\\"', '"'),
+                    "answer": answer.replace("\n", " ").replace('\\"', '"'),
+                }
+                qa_pairs.append(qa_pair)
+            except Exception as e:
+                print(f"Error constructing QA pair: {e}")
+                print("Failed match:", question, answer)
+
+        return qa_pairs
+
+    output_list = extract_qa_pairs(llm_response)
+    return output_list
+
+
+class TextBook:
+    """
+    Class to hold a textbook and its metadata.
+    Can generate QA pairs with an LLM.
+    """
+
+    def __init__(self, filepath):
+        self.filepath = filepath
+
+        # Extract title, author, year from filepath
+        #   format is "title, by author, year.txt"
+        base = os.path.splitext(os.path.basename(self.filepath))[0]
+        match = re.match(r"(.+), by (.+?), (\d{4})", base)
+        if match:
+            self.title, self.author, self.year = match.groups()
+        else:
+            raise ValueError(f"Could not parse {self.filepath}")
+
+        self.qa_pairs = []
+        self.load_text()
+
+    def load_text(self):
+        with open(self.filepath, "r") as f:
+            self.text = f.read()
+
+    def generate_qa_pairs(self, multiprocess=True):
+        def chunk_text(text, chunk_size=1524, overlap=500):
+            """Divide the text into overlapping chunks."""
+            return [
+                text[i : i + chunk_size]
+                for i in range(0, len(text), chunk_size - overlap)
+            ]
+
+        def create_qa_pairs(text_chunks, title, author):
+            """Generate QA pairs for each chunk of text."""
+            with Pool() as pool:
+                result = pool.map(
+                    generate_qa_pair, [(chunk, title, author) for chunk in text_chunks]
+                )
+            return list(chain.from_iterable(result))
+
+        # Prepare chunks of text with overlap
+        text_chunks = chunk_text(self.text)
+        self.qa_pairs = []
+
+        if multiprocess:
+            # Generate QA pairs using multiprocessing
+            self.qa_pairs = create_qa_pairs(text_chunks, self.title, self.author)
+        else:
+            for chunk in text_chunks:
+                qa_pairs = generate_qa_pair(chunk, self.title, self.author)
+                self.qa_pairs.extend(qa_pairs)
+
+    def save_dataset_jsonl(self):
+        with open(f"datasets/cosmology_textbooks_qa/{self.author}.jsonl", "w") as f:
+            for item in self.qa_pairs:
+                f.write(json.dumps(item) + "\n")
+
+
 if __name__ == "__main__":
-    textbooks_to_jsonl("datasets/textbooks.jsonl")
+    import glob
+
+    textbooks = []
+    for filepath in glob.glob("datasets/cosmology_textbooks/*.txt"):
+        textbooks.append(TextBook(filepath))
+    for textbook in textbooks:
+        textbook.generate_qa_pairs(multiprocess=True)
+        textbook.save_dataset_jsonl()
+        print(f"Saved {textbook.author} to jsonl")
