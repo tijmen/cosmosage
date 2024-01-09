@@ -1,17 +1,22 @@
 import os
 import scrape_arxiv
 import multiprocessing
+import glob
+import random
 import pickle
 
-cache_file = "datasets/arxiv_ids_cache.pkl"
+# arxiv_ids = []
+# for f in glob.glob("datasets/arxiv_qa/*.jsonl"):
+#     arxiv_ids.append(f.split("/")[-1].split(".jsonl")[0])
 
-# Load the cached data
-with open(cache_file, "rb") as f:
+with open("datasets/best_papers.pkl", "rb") as f:
     arxiv_ids = pickle.load(f)
+
+random.shuffle(arxiv_ids)
 
 def process_arxiv_id(arxiv_id):
     try:
-        paper = scrape_arxiv.arxiv_paper(arxiv_id)
+        paper = scrape_arxiv.ArxivPaper(arxiv_id)
         paper.generate_summary()
         paper.generate_qa_pairs()
         paper.save_dataset_jsonl()
@@ -19,12 +24,13 @@ def process_arxiv_id(arxiv_id):
         # Log the exception and arxiv_id
         print(f"Error processing {arxiv_id}: {e}")
 
+
 # Create a pool of workers
 pool = multiprocessing.Pool()
 
 # Map the process_arxiv_id function to each arxiv_id in parallel
 for arxiv_id in arxiv_ids:
-    if not os.path.exists(f"datasets/arxiv_qa/{arxiv_id}.jsonl"):
+    if not os.path.exists(f"datasets/arxiv_qa2/{arxiv_id}.jsonl"):
         pool.apply_async(process_arxiv_id, args=(arxiv_id,))
 
 # Close the pool of workers

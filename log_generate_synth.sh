@@ -1,7 +1,7 @@
 #!/bin/bash
 
-log_file="datasets/arxiv_qa/generate_synth.log"
-folder_path="datasets/arxiv_qa/"
+log_file="datasets/arxiv_qa2/generate_synth.log"
+folder_path="datasets/arxiv_qa2/"
 
 while true; do
     current_time=$(date +"%Y-%m-%d %H:%M:%S")

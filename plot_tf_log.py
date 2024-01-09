@@ -21,7 +21,7 @@ def most_recent_log(dir):
         raise IndexError("No directories found")
 
 
-def plot_loss(file_paths, plot_type="default"):
+def plot_loss(file_paths, plot_type="default", detailed_pts_per_eval=10):
     plt.figure(figsize=(12, 8))
 
     for idx, file_path in enumerate(file_paths):
@@ -89,7 +89,7 @@ def plot_loss(file_paths, plot_type="default"):
             )
         elif plot_type == "detailed":
             # Bin the loss values
-            bin_size = int(len(t_losses) / (10 * len(e_losses)))
+            bin_size = int(len(t_losses) / (detailed_pts_per_eval * len(e_losses)))
             num_bins = int(len(t_losses) / bin_size)
             t_losses_binned = np.mean(
                 t_losses[: num_bins * bin_size].reshape(-1, bin_size), axis=1
@@ -132,6 +132,8 @@ def plot_loss(file_paths, plot_type="default"):
                     fontsize=9,
                 )
 
+            plt.grid()
+
             # Plotting learning rate on the other axis
             ax2 = plt.gca().twinx()
             ax2.plot(lr_steps, lr_values, label="Learning Rate", color="red", alpha=0.15)
@@ -139,7 +141,6 @@ def plot_loss(file_paths, plot_type="default"):
 
     plt.xlabel("Steps")
     plt.legend()
-    plt.grid()
     plt.show()
 
 

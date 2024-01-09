@@ -15,23 +15,21 @@ import io
 import tarfile
 import os
 import requests
-from bs4 import BeautifulSoup
-import re
-import requests
-import urllib.request
 import json
+import re
 import urllib.request
-import os
+import random
+from multiprocessing import Pool
+from bs4 import BeautifulSoup
 import xml.etree.ElementTree as ET
+from itertools import chain
 from langchain.document_loaders import PyPDFLoader
 from langchain.chains.summarize import load_summarize_chain
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage
 from langchain.prompts import PromptTemplate
 from langchain.output_parsers import PydanticOutputParser
 from langchain.pydantic_v1 import BaseModel, Field
-
 
 def get_arxiv_ids(search_params):
     arxiv_ids_all = []
@@ -501,29 +499,166 @@ def other_arxiv_recommendation_ids():
     ]
 
 
-class arxiv_paper:
+def generate_qa_pair(args):
+    text = args["text"]
+    summary = args["summary"]
+    arxiv_id = args["arxiv_id"]
+    title = args["title"]
+    shorthand_title = args["shorthand_title"]
+    summary = args["summary"]
+
+    class question_answer(BaseModel):
+        question: str = Field(..., description="Question framed.")
+        answer: str = Field(..., description="Answer to the question.")
+
+    class output(BaseModel):
+        output: list[question_answer] = []
+
+    # connect to the VLLM server that I started separately with something like
+    #  python -u -m vllm.entrypoints.openai.api_server --host 0.0.0.0 --model mistralai/Mistral-7B-Instruct-v0.2
+    inference_server_url = "http://0.0.0.0:8000/v1"
+
+    llm = ChatOpenAI(
+        model="/home/tijmen/cosmosage/packages/text-generation-webui/models/TheBloke_bagel-dpo-34b-v0.2-GPTQ_gptq-4bit-32g-actorder_True",
+        openai_api_key="EMPTY",
+        openai_api_base=inference_server_url,
+        temperature=random.uniform(0., 1.),
+    )
+
+    parser = PydanticOutputParser(pydantic_object=output)
+
+    instruction = "As a cosmology expert, your task is to create precise and self-contained question-answer pairs from a specified PASSAGE of a scientific paper. Ensure that each question incorporates all necessary context, allowing it to be fully understood on its own. Answers should be clear, specific, and provide comprehensive information based on the PASSAGE. The goal is for each question and answer pair to be understandable independently, ensuring they are complete and contextually clear without external references."
+
+    # Additional instructions to add some variety
+    bonus_instruction = [
+        "Questions should probe different aspects of the content, encouraging a variety of answers.",
+        "Formulate questions that challenge or dissect key points, theories, or data.",
+        "Focus on comparing and contrasting ideas or findings with other known theories or data in cosmology.",
+        "Create questions based on hypothetical scenarios or 'what-if' questions inspired by the PASSAGE.",
+        "Form questions and answers focusing on the practical applications and implications of the research findings."
+        "Formulate questions about potential future research directions or unanswered questions that arise from the study's findings.",
+        "Delve into the technical aspects or methodologies used in the study. Ask questions that require detailed explanations of the processes, techniques, or calculations presented.",
+        "Create questions that explore connections between the study's findings and other scientific disciplines, such as physics, mathematics, or computer science.",
+        "Ask questions that consider the broader philosophical implications or ethical considerations of the research findings in the field of cosmology.",
+        "Don't forget to have fun!"
+        "Remember to be creative!"
+        "Feel free to reply with a sense of humor."
+        "Be sure to include all relevant details in your answers."
+        "Ensure that each question is clear and understandable on its own."
+        "Make sure that each answer is clear and specific."
+        "Ensure that each answer is comprehensive and complete."
+        "Make sure that each question and answer pair is understandable independently."
+        "Ensure that each question and answer pair is contextually clear."
+        "Ensure that each question and answer pair is complete."
+        "Be edgy, harsh and critical. Off-the wall is ok. I like bonkers!",
+    ]
+    instruction += random.choice(bonus_instruction)
+
+    prompt = (
+        """
+        Below is an instruction that describes a task. Write a response that appropriately completes the request.
+
+        ### Instruction:
+        """
+        + instruction
+        + """
+        arXiv ID: """
+        + arxiv_id
+        + """
+        Paper title: """
+        + title
+        + """
+        Shorthand title: """
+        + shorthand_title
+        + """
+        Overall paper summary: """
+        + summary
+        + """
+        PASSAGE: {text}
+        Format instructions: {format_instructions}
+
+        ### Response:"""
+    )
+
+    _prompt = PromptTemplate(
+        template=prompt,
+        input_variables=["text"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
+    )
+
+    _input = _prompt.format_prompt(text=text)
+    message = [HumanMessage(content=_input.to_string())]
+
+    llm_response = llm(message).content
+
+    # Check if the response is not empty or None
+    if not llm_response:
+        print("The response from the LLM is empty or None.")
+        return []
+
+    def preprocess_string(s):
+        # Escape special characters and handle multiline strings
+        return s.replace("\n", "\\n").replace('"', '\\"')
+
+    def extract_qa_pairs(text):
+        qa_pairs = []
+
+        def match_patterns(text):
+            # Multiple patterns to account for different structures
+            patterns = [
+                r'\{\s*"question":\s*"(.*?)"\s*,\s*"answer":\s*"(.*?)"\s*\}',  # Original pattern
+                r"\"question\":\s*\"(.*?)\"\s*,\s*\"answer\":\s*\"(.*?)\"",  # Pattern for nested within an array
+                r'[{[]\s*\\?"question\\?":\s*\\?"(.*?)\\?"\s*,\s*\\?"answer\\?":\s*\\?"(.*?)\\?"\s*[}\]]',  # Pattern with escaped quotes
+                r'\\?"question\\?":\s*\\?"(.*?)\\?"\s*,\s*\\?"answer\\?":\s*\\?"(.*?)\\?"(?=,\s*\\?[{[]|\s*\\?]\])',  # Pattern for multiple JSON objects in an array
+                r'[{[]\s*\\?"output\\?":\s*\[\s*{.*?"question":\s*\'(.*?)\'\s*,\s*"answer":\s*\'(.*?)\'\s*}(?:,\s*{.*?}|])',  # Pattern for nested structure with single quotes
+                r'"question":\s*"(.+?)"\s*,\s*"answer":\s*"((?:[^"]|"(?![},]))+)"',  # New pattern to capture multi-sentence answers
+                r"\"question\":\s*\"(.*?)\"\s*,\s*\"answer\":\s*\{(.*?)\}(?=\s*,|\s*\])",  # Pattern to capture nested answer object
+            ]
+
+            for pattern in patterns:
+                matches = re.findall(pattern, text, re.DOTALL)
+                if matches:
+                    return matches
+            # If no pattern matches
+            print(f"No matches found for patterns in text: {text}")
+            return None
+
+        matches = match_patterns(text)
+        if not matches:
+            return []
+
+        for question, answer in matches:
+            try:
+                # Manually construct the dictionary from question and answer
+                qa_pair = {
+                    "question": question.replace("\n", " ").replace('\\"', '"'),
+                    "answer": answer.replace("\n", " ").replace('\\"', '"'),
+                }
+                qa_pairs.append(qa_pair)
+            except Exception as e:
+                print(f"Error constructing QA pair: {e}")
+                print("Failed match:", question, answer)
+
+        return qa_pairs
+
+    output_list = extract_qa_pairs(llm_response)
+    return output_list
+
+
+class ArxivPaper:
     """
-    Class to hold an arxiv paper and its metadata.
-    Can generate an overall summary and QA pairs with an LLM.
+    Class to hold a arxiv_paper and its metadata.
+    Can generate summary and QA pairs with an LLM.
     """
 
     def __init__(self, arxiv_id):
         self.arxiv_id = arxiv_id
-
-        # connect to the VLLM server that I started separately with something like
-        #  python -u -m vllm.entrypoints.openai.api_server --host 0.0.0.0 --model mistralai/Mistral-7B-Instruct-v0.2
-
-        inference_server_url = "http://0.0.0.0:8000/v1"
-
-        self.llm = ChatOpenAI(
-            model="mistralai/Mistral-7B-Instruct-v0.2",
-            openai_api_key="EMPTY",
-            openai_api_base=inference_server_url,
-            max_tokens=4096,
-            temperature=0.4,
-        )
         self.fetch_paper_data()
+
         self.title = self.paper_data.find("{http://www.w3.org/2005/Atom}title").text
+        # remove any line breaks from the title. replace "\n  ", "\n " or "\n" with just a space
+        self.title = re.sub(r"\n\s*", " ", self.title)
+
         self.year = self.paper_data.find(
             "{http://www.w3.org/2005/Atom}published"
         ).text.split("-")[0]
@@ -534,8 +669,12 @@ class arxiv_paper:
         )
         self.shorthand_title = f"{self.first_author} et al. ({self.year})"
         self.pdf_filepath = f"datasets/arxiv_pdf/{self.arxiv_id}.pdf"
+
         self.download_pdf()
+
         self.load_pdf()
+
+        self.qa_pairs = []
 
     def fetch_paper_data(self):
         url = f"http://export.arxiv.org/api/query?id_list={self.arxiv_id}"
@@ -575,92 +714,89 @@ class arxiv_paper:
         for page in self.pages:
             page.page_content = clean_up(page.page_content)
 
+        self.text = "\n\n".join([page.page_content for page in self.pages])
+
     def generate_summary(self):
-        summarize_chain = load_summarize_chain(self.llm, chain_type="map_reduce")
+        inference_server_url = "http://0.0.0.0:8000/v1"
+
+        llm = ChatOpenAI(
+            model="/home/tijmen/cosmosage/packages/text-generation-webui/models/TheBloke_bagel-dpo-34b-v0.2-GPTQ_gptq-4bit-32g-actorder_True",
+            openai_api_key="EMPTY",
+            openai_api_base=inference_server_url,
+            temperature=0.4,
+        )
+
+        summarize_chain = load_summarize_chain(llm, chain_type="map_reduce")
         self.summary = summarize_chain.run(self.pages)
-        return self.summary
 
-    def generate_qa_pairs(self):
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000, chunk_overlap=200
-        )
-        texts = text_splitter.split_documents(self.pages)
+    def load_summary(self):
+        with open(f"datasets/arxiv_qa/{self.arxiv_id}.jsonl", "r") as f:
+            summary = json.loads(f.readline())
+            self.summary = summary["answer"]
 
-        class question_answer(BaseModel):
-            question: str = Field(..., description="Question framed.")
-            answer: str = Field(..., description="Answer to the question.")
+    def generate_qa_pairs(self, multiprocess=False):
+        def chunk_text(text, chunk_size=1524, overlap=500):
+            """Divide the text into overlapping chunks."""
+            return [
+                text[i : i + chunk_size]
+                for i in range(0, len(text), chunk_size - overlap)
+            ]
 
-        class output(BaseModel):
-            output: list[question_answer] = []
+        def create_qa_pairs(text_chunks):
+            """Generate QA pairs for each chunk of text."""
+            with Pool() as pool:
+                result = pool.map(
+                    generate_qa_pair,
+                    [
+                        {
+                            "text": chunk,
+                            "summary": self.summary,
+                            "arxiv_id": self.arxiv_id,
+                            "title": self.title,
+                            "shorthand_title": self.shorthand_title,
+                            "summary": self.summary,
+                        }
+                        for chunk in text_chunks
+                    ],
+                )
+            return list(chain.from_iterable(result))
 
-        parser = PydanticOutputParser(pydantic_object=output)
-
-        # make sure summary has been generated
-        if not hasattr(self, "summary"):
-            self.generate_summary()
-
-        prompt = (
-            """You are an expert on cosmology and are tasked with generating questions and answers. You make question-answer pairs from a given PASSAGE of a scientific paper. The question should be understood BY ITSELF, so include the shorthand form, title, or arXiv ID if referring to a specific context. The answer should be long and demonstrate an excellent understanding of the subject matter.
-        arXiv ID: """
-            + self.arxiv_id
-            + """
- 
-        Paper title: """
-            + self.title
-            + """
-
-        Shorthand title: """
-            + self.shorthand_title
-            + """    
-            
-        Overall paper summary: """
-            + self.summary
-            + """
-
-        PASSAGE: {text}
-
-        {format_instructions}
-
-        Output:"""
-        )
-
+        # Prepare chunks of text with overlap
+        text_chunks = chunk_text(self.text)
         self.qa_pairs = []
 
-        for text in texts:
-            _prompt = PromptTemplate(
-                template=prompt,
-                input_variables=["text"],
-                partial_variables={
-                    "format_instructions": parser.get_format_instructions()
-                },
-            )
+        if multiprocess:
+            # Generate QA pairs using multiprocessing
+            self.qa_pairs = create_qa_pairs(text_chunks)
+        else:
+            for chunk in text_chunks:
+                args = {
+                    "text": chunk,
+                    "summary": self.summary,
+                    "arxiv_id": self.arxiv_id,
+                    "title": self.title,
+                    "shorthand_title": self.shorthand_title,
+                    "summary": self.summary,
+                }
+                qa_pairs = generate_qa_pair(args)
+                self.qa_pairs.extend(qa_pairs)
 
-            _input = _prompt.format_prompt(text=text)
-            message = [HumanMessage(content=_input.to_string())]
-
-            result = self.llm(message).content
-            try:
-                json_result = json.loads(result)
-            except json.decoder.JSONDecodeError as e:
-                print("Cannot serialize this output because of JSONDecodeError", e)
-                continue
-            for json_result in json_result:
-                if "question" in json_result and "answer" in json_result:
-                    self.qa_pairs.append(json_result)
-                elif "output" in json_result:
-                    for item in json_result["output"]:
-                        self.qa_pairs.append(item)
-                else:
-                    continue
-
-        return self.qa_pairs
+        # replace any occurences of "the paper" or "the study" with the shorthand title.
+        for qa_pair in self.qa_pairs:
+            for word in ["the paper", "this paper", "the study", "this study", "this research"]:
+                qa_pair["question"] = qa_pair["question"].replace(
+                    word, self.shorthand_title
+                )
+                qa_pair["answer"] = qa_pair["answer"].replace(
+                    word, self.shorthand_title
+                )
 
     def save_dataset_jsonl(self):
-        with open(f"datasets/arxiv_qa/{self.arxiv_id}.jsonl", "w") as f:
+        with open(f"datasets/arxiv_qa2/{self.arxiv_id}.jsonl", "w") as f:
             # first save the summary
             summary = {
                 "question": f"Summarize {self.shorthand_title}.",
-                "answer": f'{self.shorthand_title} is titled "{self.title}" and has ArXiV ID {self.arxiv_id}. {self.summary}',
+                "answer": f'{self.shorthand_title} is titled "{self.title}" and has arXiv ID {self.arxiv_id}. {self.summary}',
             }
             f.write(json.dumps(summary) + "\n")
 
@@ -670,7 +806,8 @@ class arxiv_paper:
 
 
 if __name__ == "__main__":
-    paper = arxiv_paper("1603.06522")
-    paper.generate_summary()
-    paper.generate_qa_pairs()
-    paper.save_dataset_jsonl()
+    arxiv_paper = ArxivPaper("1210.4967")
+    arxiv_paper.load_summary()
+    arxiv_paper.generate_qa_pairs(multiprocess=True)
+    arxiv_paper.save_dataset_jsonl()
+    print(f"Saved {arxiv_paper.shorthand_title} to jsonl")
