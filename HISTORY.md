@@ -62,4 +62,8 @@
  - 2023 Jan 4: mistral_cosmosage_v10: Train v9 over just the arXiv QA set using LoRA (not QLoRA) for 0.1 epoch to squeeze out any performance
                                       we might get from the high-resolution bits?
  - 2023 Jan 6: mistral_cosmosage_v11: Train v10 for 3 epochs on the new cosmology textbook QA synthetic dataset. lr=3e-5, 8-bit LoRA, 10 hours
- 
+ - 2023 Jan 7: mistral_cosmosage_v13: Train v11 for 2 epochs on arxiv QA dataset.
+ - 2023 Jan 8: mistral_cosmosage_V13: Train v12 for 1 epoch on the synthetic dataset for memorizing arxiv numbers/titles. 
+ - 2023 Jan 8: started generating synthetic dataset from arXiv using smarter LLM (bagel-34B)
+ - 2023 Jan 9: mistral_cosmosage_v14: Train v13 for 1.2 epochs on synthetic arxiv QA dataset.
+ - 2023 Jan 10: mistral_cosmosage_v15: Train v14 for another 1.2 epochs.
