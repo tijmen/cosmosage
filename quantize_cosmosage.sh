@@ -1,2 +1,5 @@
+version="v14"
+dir="/home/tijmen/cosmosage/models/mistral_cosmosage_$version/"
+python quant_autogptq.py $dir/lora_out/merged/ $dir/quant4/ wikitext
+python quant_autogptq.py $dir/lora_out/merged/ $dir/quant8/ wikitext --bits 8
 
-python quant_autogptq.py /home/tijmen/cosmosage/models/mistral_cosmosage_v15/merged/ /home/tijmen/cosmosage/models/mistral_cosmosage_v15/quant/ wikitext

@@ -67,3 +67,7 @@
  - 2023 Jan 8: started generating synthetic dataset from arXiv using smarter LLM (bagel-34B)
  - 2023 Jan 9: mistral_cosmosage_v14: Train v13 for 1.2 epochs on synthetic arxiv QA dataset.
  - 2023 Jan 10: mistral_cosmosage_v15: Train v14 for another 1.2 epochs.
+ - 2023 Jan 11: Found mistake in v14 and v15 dataset, restarted from v13, training on synthetic
+                arxiv QA datset. Ran for 3 epochs but minimum eval loss was after 2, so merged 
+                this checkpoint.
+ - 2023 Jan 11: Created int4 and int8 quants using TheBloke's script.
