@@ -10,7 +10,9 @@ import scipy
 from tensorboard.backend.event_processing import event_accumulator
 import os
 import glob
-
+from scipy.stats import linregress
+from tensorflow.python.summary.summary_iterator import summary_iterator
+from tensorflow.core.util.event_pb2 import Event
 
 def most_recent_log(dir):
     logs = glob.glob("/home/tijmen/cosmosage/models/" + dir + "/*/runs/*/*.0")
@@ -138,6 +140,51 @@ def plot_loss(file_paths, plot_type="default", detailed_pts_per_eval=10):
             ax2 = plt.gca().twinx()
             ax2.plot(lr_steps, lr_values, label="Learning Rate", color="red", alpha=0.15)
             ax2.set_ylabel("Learning Rate")
+
+        elif plot_type == "slopes":
+            num_segments = 10
+            segment_length = len(t_steps) // num_segments
+
+            # Initialize arrays to store slopes and midpoints of each segment
+            slopes = np.zeros(num_segments)
+            midpoints = np.zeros(num_segments)
+            indices = np.zeros(num_segments)
+            avg_losses = np.zeros(num_segments)
+
+            # Calculate slopes for each segment and determine the midpoints based on the fit
+            for i in range(num_segments):
+                start_idx = i * segment_length
+                end_idx = (i + 1) * segment_length if i != num_segments - 1 else len(t_steps)
+                indices[i] = (start_idx+end_idx)/2
+
+                segment_steps = t_steps[start_idx:end_idx]
+                segment_losses = t_losses[start_idx:end_idx]
+
+                avg_losses[i] = np.mean(segment_losses)
+
+                slope, intercept, _, _, _ = linregress(segment_steps, segment_losses)
+                slopes[i] = slope
+
+                # Calculate midpoint based on the fit
+                avg_loss = (np.max(segment_losses) + np.min(segment_losses)) / 2
+                x_mid = (avg_loss - intercept) / slope
+                midpoints[i] = x_mid
+
+            # Create subplots
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 4))
+
+            # Plot slopes in the top subplot
+            ax1.plot(indices, slopes, label="Slopes", color="blue")
+            ax1.set_xlabel("Steps")
+            ax1.set_ylabel("Slope")
+            ax1.grid()
+
+            # Plot training loss in the bottom subplot
+            ax2.plot(indices, avg_losses, label=f"Training Loss", color="green")
+            ax2.set_xlabel("Steps")
+            ax2.set_ylabel("Training Loss")
+            ax2.grid()
+
 
     plt.xlabel("Steps")
     plt.legend()
