@@ -76,3 +76,4 @@
  - 2023 Jan 14: mistral_cosmosage_v16: v15 is the best model, yet. Let's take the merged v15 and do another LoRA epoch. This will be kind of like
                 ReLoRA where the second adapter is not degenerate with the first. Same params.
  - 2023 Jan 16: published mistral_cosmosage_v16 (internal name) as https://huggingface.co/Tijmen2/cosmosage_v0.4
+ - 2023 Jan 20: New model starting with strong public 7B model, full fine tune on all cosmo QA data.
