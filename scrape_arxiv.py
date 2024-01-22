@@ -16,6 +16,7 @@ import tarfile
 import os
 import requests
 import json
+import pickle
 import re
 import urllib.request
 import random
@@ -30,6 +31,7 @@ from langchain.schema import HumanMessage
 from langchain.prompts import PromptTemplate
 from langchain.output_parsers import PydanticOutputParser
 from langchain.pydantic_v1 import BaseModel, Field
+
 
 def get_arxiv_ids(search_params):
     arxiv_ids_all = []
@@ -522,7 +524,7 @@ def generate_qa_pair(args):
         model="/home/tijmen/cosmosage/packages/text-generation-webui/models/TheBloke_bagel-dpo-34b-v0.2-GPTQ_gptq-4bit-32g-actorder_True",
         openai_api_key="EMPTY",
         openai_api_base=inference_server_url,
-        temperature=random.uniform(0., 1.),
+        temperature=random.uniform(0.0, 1.0),
     )
 
     parser = PydanticOutputParser(pydantic_object=output)
@@ -653,28 +655,74 @@ class ArxivPaper:
 
     def __init__(self, arxiv_id):
         self.arxiv_id = arxiv_id
-        self.fetch_paper_data()
+        print(f"Loading paper {self.arxiv_id}.")
+        # try to load from cache
+        cache_file = f"datasets/arxiv_cache/{self.arxiv_id}.pkl"
+        if os.path.exists(cache_file):
+            print(f"Loading {self.arxiv_id} from cache.")
+            with open(cache_file, "rb") as f:
+                cache = pickle.load(f)
+            self.title = cache["title"]
+            self.year = cache["year"]
+            self.first_author = cache["first_author"]
+            self.shorthand_title = cache["shorthand_title"]
+            self.pages = cache["pages"]
+            self.text = cache["text"]
+        else:
+            self.fetch_paper_data()
+            print(f"Fetched paper data for {self.arxiv_id}.")
 
-        self.title = self.paper_data.find("{http://www.w3.org/2005/Atom}title").text
-        # remove any line breaks from the title. replace "\n  ", "\n " or "\n" with just a space
-        self.title = re.sub(r"\n\s*", " ", self.title)
+            self.title = self.paper_data.find("{http://www.w3.org/2005/Atom}title").text
+            print(f"Title: {self.title}")
 
-        self.year = self.paper_data.find(
-            "{http://www.w3.org/2005/Atom}published"
-        ).text.split("-")[0]
-        self.first_author = (
-            self.paper_data.find("{http://www.w3.org/2005/Atom}author")
-            .find("{http://www.w3.org/2005/Atom}name")
-            .text
-        )
-        self.shorthand_title = f"{self.first_author} et al. ({self.year})"
-        self.pdf_filepath = f"datasets/arxiv_pdf/{self.arxiv_id}.pdf"
+            # remove any line breaks from the title. replace "\n  ", "\n " or "\n" with just a space
+            self.title = re.sub(r"\n\s*", " ", self.title)
 
-        self.download_pdf()
+            self.year = self.paper_data.find(
+                "{http://www.w3.org/2005/Atom}published"
+            ).text.split("-")[0]
+            print(f"Year: {self.year}")
 
-        self.load_pdf()
+            self.first_author = (
+                self.paper_data.find("{http://www.w3.org/2005/Atom}author")
+                .find("{http://www.w3.org/2005/Atom}name")
+                .text
+            )
+            print(f"First author: {self.first_author}")
+
+            self.shorthand_title = f"{self.first_author} et al. ({self.year})"
+            print(f"Shorthand title: {self.shorthand_title}")
+
+            self.pdf_filepath = f"datasets/arxiv_pdf/{self.arxiv_id}.pdf"
+
+            self.download_pdf()
+            print(f"Downloaded PDF for {self.arxiv_id}.")
+
+            self.load_pdf()
+            print(f"Loaded PDF for {self.arxiv_id}.")
 
         self.qa_pairs = []
+        print("Initialized QA pairs.")
+
+    def save_to_cache(self):
+        # save the metadata and loaded PDF to a pickle file
+        outfile = f"datasets/arxiv_cache/{self.arxiv_id}.pkl"
+        if os.path.exists(outfile):
+            print(f"File {outfile} already exists, skipping.")
+            return
+        else:
+            print(f"Saving {self.arxiv_id} to cache.")
+            cache = {
+                "arxiv_id": self.arxiv_id,
+                "title": self.title,
+                "year": self.year,
+                "first_author": self.first_author,
+                "shorthand_title": self.shorthand_title,
+                "pages": self.pages,
+                "text": self.text,
+            }
+            with open(outfile, "wb") as f:
+                pickle.dump(cache, f)
 
     def fetch_paper_data(self):
         url = f"http://export.arxiv.org/api/query?id_list={self.arxiv_id}"
@@ -720,7 +768,7 @@ class ArxivPaper:
         inference_server_url = "http://0.0.0.0:8000/v1"
 
         llm = ChatOpenAI(
-            model="/home/tijmen/cosmosage/packages/text-generation-webui/models/TheBloke_bagel-dpo-34b-v0.2-GPTQ_gptq-4bit-32g-actorder_True",
+            model="/home/tijmen/public_models/TheBloke_Nous-Hermes-2-Yi-34B-GPTQ_gptq-4bit-32g-actorder_True",
             openai_api_key="EMPTY",
             openai_api_base=inference_server_url,
             temperature=0.4,
@@ -783,7 +831,13 @@ class ArxivPaper:
 
         # replace any occurences of "the paper" or "the study" with the shorthand title.
         for qa_pair in self.qa_pairs:
-            for word in ["the paper", "this paper", "the study", "this study", "this research"]:
+            for word in [
+                "the paper",
+                "this paper",
+                "the study",
+                "this study",
+                "this research",
+            ]:
                 qa_pair["question"] = qa_pair["question"].replace(
                     word, self.shorthand_title
                 )
@@ -807,7 +861,8 @@ class ArxivPaper:
 
 if __name__ == "__main__":
     arxiv_paper = ArxivPaper("1210.4967")
-    arxiv_paper.load_summary()
-    arxiv_paper.generate_qa_pairs(multiprocess=True)
-    arxiv_paper.save_dataset_jsonl()
-    print(f"Saved {arxiv_paper.shorthand_title} to jsonl")
+    arxiv_paper.save_to_cache()
+    # arxiv_paper.load_summary()
+    # arxiv_paper.generate_qa_pairs(multiprocess=True)
+    # arxiv_paper.save_dataset_jsonl()
+    # print(f"Saved {arxiv_paper.shorthand_title} to jsonl")
