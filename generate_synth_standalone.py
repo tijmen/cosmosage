@@ -8,8 +8,8 @@ import argparse
 import logging
 import multiprocessing
 import re
-from multiprocessing import Pool
-from langchain.chat_models import ChatOpenAI
+#from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 from langchain.prompts import PromptTemplate
 from langchain.output_parsers import PydanticOutputParser
@@ -31,7 +31,7 @@ args = parser.parse_args()
 vllm_port = args.port
 
 # filenames = glob.glob("input/datasets/arxiv_cache/*.pkl")
-filenames = glob.glob("/home/tijmen/cosmosage/datasets/arxiv_cache/*.pkl")
+filenames = glob.glob("input/datasets/arxiv_cache/*.pkl")
 random.shuffle(filenames)
 
 logging.info(f"Found {len(filenames)} files to process.")
@@ -84,7 +84,6 @@ The goal is for each question and answer pair to be understandable independently
         "Make sure that each question and answer pair is understandable independently.",
         "Ensure that each question and answer pair is contextually clear.",
         "Ensure that each question and answer pair is complete.",
-        "Be edgy, harsh and critical. Off-the wall is ok. I like bonkers!",
         "Consider whether a mathematical representation would be helpful in summarizing the PASSAGE.",
     ]
 
@@ -109,10 +108,9 @@ Format instructions: {format_instructions}"""
     inference_server_url = f"http://localhost:{vllm_port}/v1"
 
     llm = ChatOpenAI(
-        model="/home/tijmen/public_models/TheBloke_Nous-Hermes-2-Yi-34B-GPTQ_gptq-4bit-32g-actorder_True",
+        model="input/public_models/TheBloke_Nous-Hermes-2-Yi-34B-GPTQ_gptq-4bit-32g-actorder_True",
         openai_api_key="EMPTY",
         openai_api_base=inference_server_url,
-        max_tokens=1800,
         temperature=0.4,
     )
 
@@ -211,10 +209,10 @@ def chunk_text(text, max_chunk_size=1800, overlap=600):
 def add_QA(filename):
     with open(filename, "rb") as f:
         paper = pickle.load(f)
-    if "QA" in paper:
-        logging.info(f"QA already exists for {filename}. Skipping...")
+    if "qa" in paper:
+        logging.info(f"qa already exists for {filename}. Skipping...")
         return
-    logging.info(f"Generating QA for {filename}...")
+    logging.info(f"Generating qa for {filename}...")
     try:
         qa_pairs = []
 
@@ -258,20 +256,17 @@ def add_QA(filename):
         pickle.dump(paper, f)
         logging.info(f"Succesfully added synthetic QA data to {filename}!")
 
-# # Create a pool of workers
-# logging.info("Creating pool of workers")
-# pool = multiprocessing.Pool(16)
+# Create a pool of workers
+logging.info("Creating pool of workers")
+pool = multiprocessing.Pool(16)
 
-# # Map the process_arxiv_id function to each arxiv_id in parallel
-# logging.info("Mapping add_QA to filenames")
-# for filename in filenames:
-#     pool.apply_async(add_QA, args=(filename,))
+# Map the process_arxiv_id function to each arxiv_id in parallel
+logging.info("Mapping add_QA to filenames")
+for filename in filenames:
+    pool.apply_async(add_QA, args=(filename,))
 
-# # Close the pool of workers
-# logging.info("Closing pool of workers")
-# pool.close()
-# logging.info("Waiting for workers to finish")
-# pool.join()
-
-
-add_QA(filenames[0])
+# Close the pool of workers
+logging.info("Closing pool of workers")
+pool.close()
+logging.info("Waiting for workers to finish")
+pool.join()

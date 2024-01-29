@@ -11,26 +11,23 @@ import logging
 
 # Set up logging
 random_number = random.randint(10000, 99999)  # Generate a random number
-log_filename = (
-    f"output/logs/{random_number}.log"  # Create a log filename with a random number
-)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(log_filename), logging.StreamHandler()],
-)
+log_filename = f"output/logs/{random_number}.log"  # Create a log filename with a random number
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[
+                        logging.FileHandler(log_filename),
+                        logging.StreamHandler()
+                    ])
+
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Generate summaries for arXiv papers.")
-parser.add_argument(
-    "--port", type=int, help="Port number for the VLLM server", required=True
-)
+parser.add_argument('--port', type=int, help='Port number for the VLLM server', required=True)
 args = parser.parse_args()
 vllm_port = args.port
 
 filenames = glob.glob("input/datasets/arxiv_cache/*.pkl")
 random.shuffle(filenames)
-
 
 def summary(summary_input):
     inference_server_url = f"http://0.0.0.0:{vllm_port}/v1"
@@ -39,12 +36,11 @@ def summary(summary_input):
         model="input/public_models/TheBloke_Nous-Hermes-2-Yi-34B-GPTQ_gptq-4bit-32g-actorder_True/",
         openai_api_key="EMPTY",
         openai_api_base=inference_server_url,
-        temperature=0.4,
+	temperature=0.4,
     )
 
     summarize_chain = load_summarize_chain(llm, chain_type="map_reduce")
     return summarize_chain.run(summary_input)
-
 
 def add_summary(filename):
     with open(filename, "rb") as f:
@@ -64,9 +60,8 @@ def add_summary(filename):
         pickle.dump(paper, f)
         logging.info(f"Succesfully added summary to {filename}")
 
-
 # Create a pool of workers
-print("Creating pool of workers")
+print("Creating pool of workers")   
 pool = multiprocessing.Pool(16)
 
 # Map the process_arxiv_id function to each arxiv_id in parallel
