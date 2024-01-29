@@ -77,3 +77,4 @@
                 ReLoRA where the second adapter is not degenerate with the first. Same params.
  - 2023 Jan 16: published mistral_cosmosage_v16 (internal name) as https://huggingface.co/Tijmen2/cosmosage_v0.4
  - 2023 Jan 20: New model starting with strong public 7B model, full fine tune on all cosmo QA data.
+ - 2023 Jan 28: The full fine-tune is way way better at adding new knowledge than LoRA. Uploaded as https://huggingface.co/Tijmen2/cosmosage_v1 and https://huggingface.co/Tijmen2/cosmosage_v1_gptq (8 bit quant)
