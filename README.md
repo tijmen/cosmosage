@@ -10,6 +10,8 @@ cosmosage is an attempt to fine-tune a relatively modest large language model on
 
 Tijmen de Haan <tijmen.dehaan@gmail.com>
 
+If you have an hour to spare, I gave a colloquium on cosmosage, which you can watch here https://www.youtube.com/watch?v=azwfG2UTNEY
+
 ## Project Structure
 
 A walkthrough of the project is given in iPython Notebook format in `cosmosage.ipynb`. This notebook walks through the several-step process for fine-tuning the language model on cosmology-specific datasets. It goes through steps for data collection, preprocessing, model training, and evaluation.
