@@ -10,7 +10,7 @@ cosmosage is an attempt to fine-tune a relatively modest large language model on
 
 Tijmen de Haan <tijmen.dehaan@gmail.com>
 
-If you have an hour to spare, I gave a colloquium on cosmosage, which you can watch here https://www.youtube.com/watch?v=azwfG2UTNEY
+I gave a colloquium on cosmosage, which you can watch here https://www.youtube.com/watch?v=azwfG2UTNEY
 
 ## Project Structure
 
@@ -24,9 +24,11 @@ The codebase was written with the use of Pylance, GitHub Copilot, GPT-4, and VSC
 
 ## Usage
 
-To get started with cosmosage:
+To get started with training cosmosage:
 - Ensure you have Jupyter Notebook and the required dependencies
 - Open and follow the steps in `cosmosage.ipynb` for a guide to training and using the model.
+
+If you'd like to run a version of cosmosage that I've trained, head over to https://huggingface.co/Tijmen2 where I have and will continue to post versions.
 
 ## Contributing
 
