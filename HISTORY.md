@@ -61,20 +61,22 @@
  - 2023 Dec 31: mistral_cosmosage_v9: Train mistral_cosmosage_v8 1 epoch over all instruct/QA datasets
  - 2023 Jan 4: mistral_cosmosage_v10: Train v9 over just the arXiv QA set using LoRA (not QLoRA) for 0.1 epoch to squeeze out any performance
                                       we might get from the high-resolution bits?
- - 2023 Jan 6: mistral_cosmosage_v11: Train v10 for 3 epochs on the new cosmology textbook QA synthetic dataset. lr=3e-5, 8-bit LoRA, 10 hours
- - 2023 Jan 7: mistral_cosmosage_v13: Train v11 for 2 epochs on arxiv QA dataset.
- - 2023 Jan 8: mistral_cosmosage_V13: Train v12 for 1 epoch on the synthetic dataset for memorizing arxiv numbers/titles. 
- - 2023 Jan 8: started generating synthetic dataset from arXiv using smarter LLM (bagel-34B)
- - 2023 Jan 9: ~mistral_cosmosage_v14~: Train v13 for 1.2 epochs on synthetic arxiv QA dataset.
- - 2023 Jan 10: ~mistral_cosmosage_v15~: Train v14 for another 1.2 epochs.
- - 2023 Jan 11: mistral_cosmosage_v14: Found mistake in v14 and v15 dataset, restarted from v13, training on synthetic
+ - 2024 Jan 6: mistral_cosmosage_v11: Train v10 for 3 epochs on the new cosmology textbook QA synthetic dataset. lr=3e-5, 8-bit LoRA, 10 hours
+ - 2024 Jan 7: mistral_cosmosage_v13: Train v11 for 2 epochs on arxiv QA dataset.
+ - 2024 Jan 8: mistral_cosmosage_V13: Train v12 for 1 epoch on the synthetic dataset for memorizing arxiv numbers/titles. 
+ - 2024 Jan 8: started generating synthetic dataset from arXiv using smarter LLM (bagel-34B)
+ - 2024 Jan 9: ~mistral_cosmosage_v14~: Train v13 for 1.2 epochs on synthetic arxiv QA dataset.
+ - 2024 Jan 10: ~mistral_cosmosage_v15~: Train v14 for another 1.2 epochs.
+ - 2024 Jan 11: mistral_cosmosage_v14: Found mistake in v14 and v15 dataset, restarted from v13, training on synthetic
                 arxiv QA datset. Ran for 3 epochs but minimum eval loss was after 2, so merged 
                 this checkpoint.
- - 2023 Jan 11: Created int4 and int8 quants using TheBloke's script.
- - 2023 Jan 13: mistral_cosmosage_v15: start again with an instruct model. Pick the strongest one on the HF leaderboard and train for 1 epoch
+ - 2024 Jan 11: Created int4 and int8 quants using TheBloke's script.
+ - 2024 Jan 13: mistral_cosmosage_v15: start again with an instruct model. Pick the strongest one on the HF leaderboard and train for 1 epoch
                 on all my QA datasets simultaneously. lr=1e-5 8-bit LoRA.
- - 2023 Jan 14: mistral_cosmosage_v16: v15 is the best model, yet. Let's take the merged v15 and do another LoRA epoch. This will be kind of like
+ - 2024 Jan 14: mistral_cosmosage_v16: v15 is the best model, yet. Let's take the merged v15 and do another LoRA epoch. This will be kind of like
                 ReLoRA where the second adapter is not degenerate with the first. Same params.
- - 2023 Jan 16: published mistral_cosmosage_v16 (internal name) as https://huggingface.co/Tijmen2/cosmosage_v0.4
- - 2023 Jan 20: New model starting with strong public 7B model, full fine tune on all cosmo QA data.
- - 2023 Jan 28: The full fine-tune is way way better at adding new knowledge than LoRA. Uploaded as https://huggingface.co/Tijmen2/cosmosage_v1 and https://huggingface.co/Tijmen2/cosmosage_v1_gptq (8 bit quant)
+ - 2024 Jan 16: published mistral_cosmosage_v16 (internal name) as https://huggingface.co/Tijmen2/cosmosage_v0.4
+ - 2024 Jan 20: New model starting with strong public 7B model, full fine tune on all cosmo QA data.
+ - 2024 Jan 28: The full fine-tune is way way better at adding new knowledge than LoRA. Uploaded as https://huggingface.co/Tijmen2/cosmosage_v1 and https://huggingface.co/Tijmen2/cosmosage_v1_gptq (8 bit quant)
+ - 2024 Feb 13: Trying out Nougat-OCR (suggested by Antonin Sulc). This translates the books/papers into markdown, which can
+                be trained on. Starting full fine-tune / continued pretraining on Mistral-7B-v0.1. Will instruct-tune later.
