@@ -80,3 +80,6 @@
  - 2024 Jan 28: The full fine-tune is way way better at adding new knowledge than LoRA. Uploaded as https://huggingface.co/Tijmen2/cosmosage_v1 and https://huggingface.co/Tijmen2/cosmosage_v1_gptq (8 bit quant)
  - 2024 Feb 13: Trying out Nougat-OCR (suggested by Antonin Sulc). This translates the books/papers into markdown, which can
                 be trained on. Starting full fine-tune / continued pretraining on Mistral-7B-v0.1. Will instruct-tune later.
+ - 2024 Feb 15: Refining QA pairs by letting a 34B model play a game of grade-the-assignment. 90%+ grade answers are selected.
+ - 2024 Feb 16: Training resulting base model with the refined QA pairs.
+ - 2024 Feb 19: Uploaded https://huggingface.co/Tijmen2/cosmosage_v2 with quants
