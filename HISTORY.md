@@ -83,3 +83,4 @@
  - 2024 Feb 15: Refining QA pairs by letting a 34B model play a game of grade-the-assignment. 90%+ grade answers are selected.
  - 2024 Feb 16: Training resulting base model with the refined QA pairs.
  - 2024 Feb 19: Uploaded https://huggingface.co/Tijmen2/cosmosage_v2 with quants
+ - 2024 Feb 27: Figured out exact chat template and updated cosmosage_v2 as well as fastchat.
