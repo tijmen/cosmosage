@@ -1,5 +1,8 @@
 python -u -m vllm.entrypoints.openai.api_server \
     --host 0.0.0.0 \
-    --model /home/tijmen/public_models/TheBloke_Nous-Hermes-2-Yi-34B-GPTQ_gptq-4bit-32g-actorder_True \
+    --model /home/tijmen/cosmosage/models/cosmosage-v3/ \
     --disable-log-requests \
-    --dtype float16
+    --dtype bfloat16 \
+    --port 8000 \
+    --tensor-parallel-size 1 \
+    --max-model-len 8192
