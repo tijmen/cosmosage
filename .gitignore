@@ -166,3 +166,6 @@ models
 packages
 sandbox.ipynb
 old
+mcq_eval
+merge
+logs
