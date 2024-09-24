@@ -1,9 +1,48 @@
+"""
+This script processes QA pairs from JSON files, grades them using a language model, and saves the files with the grades included.
+
+Functions:
+    build_prompt(qa_pair):
+        Constructs a prompt for grading a given QA pair by selecting two random examples from predefined examples.
+
+    parse_response(response):
+        Parses the response from the language model to extract grades and calculates the total grade.
+
+Variables:
+    sampling_params:
+        Parameters for sampling from the language model, including temperature and max tokens.
+
+    llm:
+        An instance of the language model with specified model and data type.
+
+    examples:
+        A list of example QA pairs with grades and critiques used for constructing prompts.
+
+    max_papers_per_batch:
+        The maximum number of papers to process in a single batch.
+
+    qa_raw_files:
+        A sorted list of file paths to the raw QA JSON files.
+
+    total_files:
+        The total number of QA files to process.
+
+Main Loop:
+    The script processes each QA file, constructs prompts for each QA pair, generates grades using the language model, and saves the graded results to output files. It also handles lock files to avoid processing the same file concurrently.
+
+Author: Tijmen de Haan
+
+Date: 2024-09-24
+
+"""
+
 import glob
 import json
 import random
 import os
 import torch  # Import torch to use torch.bfloat16
 from vllm import LLM, SamplingParams
+
 sampling_params = SamplingParams(temperature=0, max_tokens=7)
 llm = LLM(model="meta-llama/Meta-Llama-3.1-8B", dtype=torch.float16)
 
@@ -145,8 +184,8 @@ while True:
         for idx, qa_pair in enumerate(paper["qa_pairs"]):
             if not isinstance(qa_pair, dict):
                 print(f"Skipping QA pair at index {idx} because it's not a dictionary.")
-                continue            
-            try: 
+                continue
+            try:
                 prompt = build_prompt(qa_pair)
             except Exception as e:
                 print(f"Error building prompt for QA pair.")
