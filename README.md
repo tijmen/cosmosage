@@ -12,6 +12,8 @@ Tijmen de Haan <tijmen.dehaan@gmail.com>
 
 I gave a colloquium on cosmosage, which you can watch here https://www.youtube.com/watch?v=azwfG2UTNEY
 
+I also wrote an article on cosmosage which is available as preprint at https://arxiv.org/abs/2407.04420
+
 ## Project Structure
 
 A walkthrough of the project is given in iPython Notebook format in `cosmosage.ipynb`. This notebook walks through the several-step process for fine-tuning the language model on cosmology-specific datasets. It goes through steps for data collection, preprocessing, model training, and evaluation.
