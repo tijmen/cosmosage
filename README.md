@@ -1,3 +1,7 @@
+# Update 2025-05
+
+This repository documents some of the code used in January 2024 for https://doi.org/10.1016/j.ascom.2025.100934 It may still contain some useful snippets, but it is largely out of date and I would not recommend using this as a starting point for modern LLM fine-tuning work.
+
 # cosmosage
 
 ## Introduction
